@@ -8,13 +8,9 @@ import com.example.securityapp.dto.RegisterRequest;
 import com.example.securityapp.entity.UserEntity;
 import com.example.securityapp.repository.UserRepository;
 import com.example.securityapp.service.AuthService;
-import io.jsonwebtoken.Jwts;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import static java.security.KeyRep.Type.SECRET;
 
 @Service
 @AllArgsConstructor
@@ -29,6 +25,7 @@ public class AuthServiceImpl implements AuthService {
         UserEntity user = new UserEntity();
         user.setEmail(req.getEmail());
         user.setPassword(encoder.encode(req.getPassword()));
+        user.setName(req.getName());
         user.setRole("USER");
 
         repo.save(user);
@@ -54,6 +51,7 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(req.getEmail());
         user.setPassword(encoder.encode(req.getPassword()));
         user.setRole("ADMIN"); // admin role
+        user.setName(req.getName());
         repo.save(user);
         return "Admin user created successfully";
     }

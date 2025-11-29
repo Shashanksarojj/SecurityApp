@@ -3,6 +3,7 @@ package com.example.securityapp.config;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
@@ -15,9 +16,22 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     public void commence(
             HttpServletRequest request,
             HttpServletResponse response,
-            org.springframework.security.core.AuthenticationException authException
-    ) throws IOException, ServletException {
+            AuthenticationException authException
+    ) throws IOException {
 
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Invalid or missing token");
+        response.setContentType("application/json");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+
+        String jsonResponse = """
+        {
+            "status": 401,
+            "error": "Unauthorized",
+            "message": "Invalid or missing token",
+            "path": "%s"
+        }
+        """.formatted(request.getRequestURI());
+
+        response.getWriter().write(jsonResponse);
     }
+
 }

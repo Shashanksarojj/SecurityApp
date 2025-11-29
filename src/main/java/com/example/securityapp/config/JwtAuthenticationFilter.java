@@ -1,6 +1,7 @@
 package com.example.securityapp.config;
 
 
+import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,50 +30,54 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain chain
     ) throws ServletException, IOException {
 
-        String path = request.getServletPath();
+        String header = request.getHeader("Authorization");
 
-        // Only skip login + normal register
-        if (path.equals("/auth/login") || path.equals("/auth/register")) {
+        // ❗ Skip if auth header missing OR not Bearer token
+        if (header == null || !header.startsWith("Bearer ")) {
             chain.doFilter(request, response);
             return;
         }
 
+        String token = header.substring(7);
 
-        String header = request.getHeader("Authorization");
-
-        if (header != null && header.startsWith("Bearer ")) {
-
-            String token = header.substring(7);
-
+        try {
+            // Extract username
             String username = jwtUtil.extractUsername(token);
 
             if (username != null && jwtUtil.validate(token)) {
 
-                // Extract role from token
                 String role = jwtUtil.extractRole(token);
 
-                // Convert role to Spring authority
-                List<SimpleGrantedAuthority> authorities =
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role));
-
-                // Create Authentication object
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
                                 username,
                                 null,
-                                authorities
+                                List.of(new SimpleGrantedAuthority("ROLE_" + role))
                         );
 
-                auth.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
-                );
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // Store authentication
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
+
+        } catch (MalformedJwtException | IllegalArgumentException e) {
+            // 🔥 Return readable JSON error instead of throwing 500
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+
+            response.getWriter().write("""
+            {
+                "status": "ERROR",
+                "message": "Invalid or malformed JWT token",
+                "data": null,
+                "path": "%s"
+            }
+        """.formatted(request.getRequestURI()));
+
+            return;
         }
 
         chain.doFilter(request, response);
     }
+
 }
