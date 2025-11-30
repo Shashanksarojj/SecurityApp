@@ -4,8 +4,11 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 
 import static java.security.KeyRep.Type.SECRET;
+import com.example.securityapp.security.RolePermissionMapper;
+
 
 @Component
 public class JwtUtil {
@@ -14,10 +17,12 @@ public class JwtUtil {
 
 
     public String generateToken(String email, String role) {
+        List<String> permissions = RolePermissionMapper.getPermissionsForRole(role);
         return Jwts.builder()
                 .setSubject(email)
                 .claim("role", role)
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+                .claim("permissions", permissions)
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 15))
                 .signWith(Keys.hmacShaKeyFor(SECRET.getBytes()))
                 .compact();
     }
@@ -49,5 +54,15 @@ public class JwtUtil {
                 .getBody()
                 .get("role");
     }
+
+    public List<String> extractPermissions(String token) {
+        return (List<String>) Jwts.parserBuilder()
+                .setSigningKey(SECRET.getBytes())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("permissions");
+    }
+
 
 }

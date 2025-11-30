@@ -7,22 +7,27 @@ import com.example.securityapp.dto.RegisterRequest;
 import com.example.securityapp.service.AuthService;
 import com.example.securityapp.utils.ResponseBuilder;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
+@Slf4j
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/v1/auth")
 @AllArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse> register(@RequestBody RegisterRequest request,
+    public ResponseEntity<ApiResponse> register(@Valid @RequestBody RegisterRequest request,
                                                 HttpServletRequest servletRequest) {
 
         String msg = authService.register(request);
@@ -44,7 +49,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse> login(@RequestBody AuthRequest request,
+    public ResponseEntity<ApiResponse> login(@Valid @RequestBody AuthRequest request,
                                              HttpServletRequest servletRequest) {
 
         AuthResponse token = authService.login(request);
@@ -53,5 +58,19 @@ public class AuthController {
                 ResponseBuilder.success("Login successful", token, servletRequest.getRequestURI())
         );
     }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse> refresh(
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+
+        String token = body.get("refreshToken");
+        AuthResponse response = authService.refreshAccessToken(token);
+
+        return ResponseEntity.ok(
+                ResponseBuilder.success("Token refreshed successfully", response, request.getRequestURI())
+        );
+    }
+
 
 }

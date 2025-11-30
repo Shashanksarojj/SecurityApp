@@ -6,6 +6,10 @@ import com.example.securityapp.entity.UserEntity;
 import com.example.securityapp.repository.UserRepository;
 import com.example.securityapp.service.UserService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -50,4 +54,19 @@ public class UserServiceImpl implements UserService {
         repo.deleteById(id);
         return "Deleted Successfully";
     }
+
+    @Override
+    public Page<UserEntity> getAllUsersPaged(int page, int size, String sortBy, String direction, String emailFilter) {
+        Sort sort = direction.equalsIgnoreCase("desc") ?
+                Sort.by(sortBy).descending() :
+                Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        if (emailFilter != null && !emailFilter.isBlank()) {
+            return repo.findByEmailContainingIgnoreCase(emailFilter, pageable);
+        }
+        return repo.findAll(pageable);
+    }
+
 }
