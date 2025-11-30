@@ -3,6 +3,8 @@ package com.example.securityapp.controller;
 
 import com.example.securityapp.dto.AdminUpdateUserRequest;
 import com.example.securityapp.dto.ApiResponse;
+import com.example.securityapp.dto.UpdateRolePermissionsRequest;
+import com.example.securityapp.entity.RoleEntity;
 import com.example.securityapp.entity.UserEntity;
 import com.example.securityapp.service.UserService;
 import com.example.securityapp.utils.ResponseBuilder;
@@ -79,4 +81,40 @@ public class AdminController {
                 )
         );
     }
+
+    @PutMapping("/users/{id}/restore")
+    @PreAuthorize("hasAuthority('ADMIN_RESTORE_USERS')")
+    public ResponseEntity<ApiResponse> restoreUser(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
+        String result = userService.restoreUser(id);
+
+        return ResponseEntity.ok(
+                ResponseBuilder.success(
+                        result,
+                        null,
+                        request.getRequestURI()
+                )
+        );
+    }
+
+    @PutMapping("/roles/{role}/permissions")
+    @PreAuthorize("hasAuthority('ADMIN_MANAGE_USERS')")
+    public ResponseEntity<ApiResponse> updateRolePermissions(
+            @PathVariable String role,
+            @RequestBody UpdateRolePermissionsRequest req,
+            HttpServletRequest request
+    ) {
+        RoleEntity updated = userService.updateRolePermissions(role, req.getPermissions());
+
+        return ResponseEntity.ok(
+                ResponseBuilder.success(
+                        "Permissions updated successfully",
+                        updated,
+                        request.getRequestURI()
+                )
+        );
+    }
+
 }

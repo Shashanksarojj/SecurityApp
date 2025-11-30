@@ -2,10 +2,17 @@ package com.example.securityapp.service.impl;
 
 import com.example.securityapp.dto.AdminUpdateUserRequest;
 import com.example.securityapp.dto.UpdateUserRequest;
+import com.example.securityapp.entity.PermissionEntity;
+import com.example.securityapp.entity.RoleEntity;
 import com.example.securityapp.entity.UserEntity;
+import com.example.securityapp.exception.ResourceNotFoundException;
+import com.example.securityapp.repository.PermissionRepository;
+import com.example.securityapp.repository.RoleRepository;
 import com.example.securityapp.repository.UserRepository;
 import com.example.securityapp.service.UserService;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +26,10 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository repo;
+    @Autowired
+    private final RoleRepository roleRepository;
+    @Autowired
+    private final PermissionRepository permissionRepository;
 
     @Override
     public UserEntity getMyProfile(String email) {
@@ -40,19 +51,31 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserEntity updateUserByAdmin(Long id, AdminUpdateUserRequest req) {
-        UserEntity user = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        user.setName(req.getName());
-        user.setRole(req.getRole());
+        UserEntity user = repo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (req.getName() != null) {
+            user.setName(req.getName());
+        }
+
+        if (req.getRoleName() != null) {
+            RoleEntity role = roleRepository.findByName(req.getRoleName())
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + req.getRoleName()));
+            user.setRole(role);
+        }
 
         return repo.save(user);
     }
 
+
     @Override
     public String deleteUser(Long id) {
-        repo.deleteById(id);
-        return "Deleted Successfully";
+        UserEntity user = repo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        repo.delete(user);
+        return "User deleted successfully";
     }
 
     @Override
@@ -69,4 +92,29 @@ public class UserServiceImpl implements UserService {
         return repo.findAll(pageable);
     }
 
+    @Override
+    @Transactional
+    public String restoreUser(Long id) {
+        int updated = repo.restoreUser(id);
+        if (updated == 0) {
+            throw new ResourceNotFoundException("User not found or not deleted");
+        }
+        return "User restored successfully";
+    }
+
+    @Override
+    @Transactional
+    public RoleEntity updateRolePermissions(String roleName, List<String> perms) {
+        RoleEntity role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+
+        List<PermissionEntity> entities = perms.stream()
+                .map(name -> permissionRepository.findByName(name)
+                        .orElseThrow(() -> new RuntimeException("Permission not found: " + name))
+                )
+                .toList();
+
+        role.setPermissions(entities);
+        return roleRepository.save(role);
+    }
 }

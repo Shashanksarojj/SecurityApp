@@ -1,6 +1,7 @@
 package com.example.securityapp.config;
 
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 @AllArgsConstructor
 @Component
@@ -43,7 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
-        // 🔒 No token → skip authentication but controller-level @PreAuthorize will block later
+        // 🔒 No token → continue; @PreAuthorize will block unauthorized access
         if (header == null || !header.startsWith("Bearer ")) {
             chain.doFilter(request, response);
             return;
@@ -52,17 +55,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
-            // Extract subject (email)
-            String username = jwtUtil.extractUsername(token);
+            // Extract CLAIMS
+            Claims claims = jwtUtil.extractAllClaims(token);
+            String username = claims.getSubject();
 
             if (username != null && jwtUtil.validate(token)) {
 
-                // Extract role & permissions from JWT claims
-                String role = jwtUtil.extractRole(token);
-                List<String> permissions = jwtUtil.extractPermissions(token);
+                // Extract Role
+                String role = claims.get("role", String.class);
 
-                // Build authorities
-                List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+                // Extract Permissions
+                List<String> permissions =
+                        claims.get("permissions", List.class);
+
+                // Build Authorities
+                List<GrantedAuthority> authorities = new ArrayList<>();
                 authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
 
                 if (permissions != null) {
@@ -71,7 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                 }
 
-                // Build authentication
+                // Build Authentication Object
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
                                 username,
@@ -80,31 +87,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
 
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // Store authentication in SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
 
         } catch (MalformedJwtException | IllegalArgumentException e) {
 
-            // Send consistent JSON error response
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
 
             response.getWriter().write("""
-                {
-                    "status": "ERROR",
-                    "message": "Invalid or malformed JWT token",
-                    "data": null,
-                    "path": "%s"
-                }
-                """.formatted(request.getRequestURI()));
+            {
+                "status": "ERROR",
+                "message": "Invalid or malformed JWT token",
+                "data": null,
+                "path": "%s"
+            }
+            """.formatted(request.getRequestURI()));
 
-            return; // Stop filter chain
+            return;
         }
 
         chain.doFilter(request, response);
     }
-
 
 }

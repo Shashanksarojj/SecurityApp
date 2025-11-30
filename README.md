@@ -6,10 +6,11 @@ A production-grade **JWT Authentication & Authorization System** built using:
 - **Spring Security 6**
 - **JWT (Access + Refresh Tokens)**
 - **PostgreSQL**
-- **Role & Permission Based RBAC**
+- **Dynamic Roles & Permissions (DB-Powered)**
 - **Global Exception Handling & Validation**
 - **Pagination, Sorting & Filtering**
 - **Rate Limiting & CORS + Security Headers**
+- **Soft Delete + Restore**
 - **Swagger/OpenAPI Documentation**
 
 This application provides a complete authentication module that is suitable for:
@@ -90,42 +91,30 @@ src/main/java/com/example/securityapp
 │   └── OpenApiConfig.java
 │
 ├── controller/
-│   ├── AuthController.java         # /api/v1/auth/*
-│   ├── UserController.java         # /api/v1/user/*
-│   └── AdminController.java        # /api/v1/admin/*
+│   ├── AuthController.java
+│   ├── UserController.java
+│   └── AdminController.java
 │
 ├── dto/
-│   ├── ApiResponse.java            # Standard response wrapper
+│   ├── ApiResponse.java
 │   ├── AuthRequest.java
-│   ├── AuthResponse.java           # accessToken + refreshToken
+│   ├── AuthResponse.java
 │   ├── RegisterRequest.java
 │   ├── UpdateUserRequest.java
-│   └── AdminUpdateUserRequest.java
+│   ├── AdminUpdateUserRequest.java
+│   └── RolePermissionUpdateRequest.java
 │
 ├── entity/
 │   ├── UserEntity.java
-│   ├── RefreshToken.java
-│   ├── RoleEntity.java             # (optional persistence)
-│   └── PermissionEntity.java       # (optional persistence)
-│
-├── exception/
-│   ├── GlobalExceptionHandler.java
-│   ├── ResourceNotFoundException.java
-│   ├── BadRequestException.java
-│   ├── UnauthorizedException.java
-│   ├── ForbiddenException.java
-│   └── TooManyRequestsException.java
+│   ├── RoleEntity.java
+│   ├── PermissionEntity.java
+│   └── RefreshToken.java
 │
 ├── repository/
 │   ├── UserRepository.java
-│   ├── RefreshTokenRepository.java
 │   ├── RoleRepository.java
-│   └── PermissionRepository.java
-│
-├── security/
-│   ├── Permissions.java
-│   ├── RolePermissionMapper.java
-│   └── LoginRateLimiter.java
+│   ├── PermissionRepository.java
+│   └── RefreshTokenRepository.java
 │
 ├── service/
 │   ├── AuthService.java
@@ -133,6 +122,10 @@ src/main/java/com/example/securityapp
 │   └── impl/
 │       ├── AuthServiceImpl.java
 │       └── UserServiceImpl.java
+│
+├── security/
+│   ├── LoginRateLimiter.java
+│   └── JwtPermissionExtractor.java
 │
 └── utils/
     └── ResponseBuilder.java
@@ -143,22 +136,86 @@ src/main/java/com/example/securityapp
 ## 🗄️ ER Diagram (Mermaid ERD)
 
 ```mermaid
-erDiagram
+# SecurityApp – Full RBAC (Role & Permission) System
 
+A production-grade **JWT Authentication & Authorization System** featuring a fully **dynamic Role-Based Access Control (RBAC)** and **Permission Management** implemented using:
+
+- Spring Boot 4  
+- Spring Security 6  
+- JWT (Access + Refresh Tokens)  
+- PostgreSQL  
+- Dynamic Roles & Permissions (DB-Powered)  
+- Global Exception Handling  
+- Pagination, Sorting & Filtering  
+- Rate Limiting  
+- Soft Delete + Restore  
+- Swagger/OpenAPI Docs  
+
+This project is built for:  
+✔ Real-world microservices  
+✔ Portfolio & resumes  
+✔ Enterprise-level authentication  
+✔ Interview preparation  
+
+## 📌 Key Features
+
+### 🔐 Authentication
+- Register user (default `USER` role or custom role)
+- Login with JWT (Access + Refresh Tokens)
+- Refresh token rotation
+- Strong password hashing (BCrypt)
+- Rate-limiting on login
+
+### 🛡 Authorization (DB-Driven RBAC)
+- Roles stored in DB (`roles` table)
+- Permissions stored in DB (`permissions` table)
+- Role → Permission (Many-to-Many)
+- User → Role (Many-to-One)
+- JWT dynamically contains `role` + `permissions`
+- `@PreAuthorize` with `hasAuthority("<PERMISSION>")`
+
+### 👤 User Management
+- User profile fetch
+- Update profile
+- Soft delete
+- Restore deleted users
+- Admin updating user role
+
+### 🏛 Admin & RBAC APIs
+- Create roles
+- Create permissions
+- Assign permissions to roles
+- Update role permissions
+- List all roles & permissions
+
+### 📊 Pagination / Sorting / Filtering
+- Admin user listing with:
+  - `page`, `size`
+  - `sortBy`, `direction`
+  - `emailFilter`
+
+### 🛡 Security
+- JWT Authentication Filter
+- Custom 401 & 403 JSON response
+- CORS configuration
+- CSP headers
+- Stateless authentication
+
+### 📕 API Documentation
+Swagger UI:  
+`http://localhost:8080/swagger-ui/index.html`
+
+## 🗄️ Database ER Diagram (Full Dynamic RBAC)
+
+```mermaid
+erDiagram
     USER_ENTITY {
         bigint id PK
         varchar email
         varchar password
         varchar name
-        varchar role
-    }
-
-    REFRESH_TOKEN {
-        bigint id PK
-        varchar token
-        timestamp expiry
-        boolean revoked
-        bigint user_id FK
+        boolean deleted
+        bigint role_id FK
     }
 
     ROLE_ENTITY {
@@ -171,9 +228,12 @@ erDiagram
         varchar name
     }
 
-    USER_ROLES {
+    REFRESH_TOKEN {
+        bigint id PK
+        varchar token
+        timestamp expiry
+        boolean revoked
         bigint user_id FK
-        bigint role_id FK
     }
 
     ROLE_PERMISSIONS {
@@ -182,10 +242,8 @@ erDiagram
     }
 
     USER_ENTITY ||--o{ REFRESH_TOKEN : "has many"
-    USER_ENTITY ||--o{ USER_ROLES : "assigned roles"
-    ROLE_ENTITY  ||--o{ USER_ROLES : "role to users"
-
-    ROLE_ENTITY       ||--o{ ROLE_PERMISSIONS : "has permissions"
+    USER_ENTITY }o--|| ROLE_ENTITY : "assigned role"
+    ROLE_ENTITY ||--o{ ROLE_PERMISSIONS : "has permissions"
     PERMISSION_ENTITY ||--o{ ROLE_PERMISSIONS : "mapped to roles"
 ```
 
@@ -194,27 +252,33 @@ erDiagram
 ## 🎯 Features
 
 ### 🔐 Authentication
-- Register user
-- Login + JWT generation
-- Access + Refresh Tokens
+- Register user (default `USER` role or custom role)
+- Login with JWT (Access + Refresh Tokens)
 - Refresh token rotation
-- Stateless security (`SessionCreationPolicy.STATELESS`)
+- Strong password hashing (BCrypt)
+- Rate-limiting on login
 
 ### 🛡 Authorization
-- Role Based Access Control (RBAC)
-- Permission based (fine-grained)
-- `@PreAuthorize` with `hasAuthority`
-- Custom denied & unauthorized handlers
+- Roles stored in DB (`roles` table)
+- Permissions stored in DB (`permissions` table)
+- Role → Permission (Many-to-Many)
+- User → Role (Many-to-One)
+- JWT dynamically contains `role` + `permissions`
+- `@PreAuthorize` with `hasAuthority("<PERMISSION>")`
 
-### 👤 User Features
-- Get own profile
-- Update own profile
+### 👤 User Management
+- User profile fetch
+- Update profile
+- Soft delete
+- Restore deleted users
+- Admin updating user role
 
-### 🏛 Admin Features
-- List users (paged & filtered)
-- Update any user
-- Delete users
-- Register new admins
+### 🏛 Admin & RBAC APIs
+- Create roles
+- Create permissions
+- Assign permissions to roles
+- Update role permissions
+- List all roles & permissions
 
 ### 📊 Pagination, Sorting, Filtering
 Admin user list supports:
@@ -228,11 +292,12 @@ Admin user list supports:
 - Prevent brute-force login attempts
 - Custom limit per user/email
 
-### 🌐 CORS + Security Headers
-- CORS allowed origins
-- CSP (Content Security Policy)
-- Frame options denied
-- Secure headers
+### 🛡 Security
+- JWT Authentication Filter
+- Custom 401 & 403 JSON response
+- CORS configuration
+- CSP headers
+- Stateless authentication
 
 ### ⚠ Exception Hierarchy
 - `ResourceNotFoundException`
@@ -244,7 +309,6 @@ Admin user list supports:
 
 ### 📜 Swagger/OpenAPI
 Access at:
-
 ```
 http://localhost:8080/swagger-ui/index.html
 ```
@@ -299,39 +363,50 @@ mvn spring-boot:run
 
 ### Auth APIs
 
-| Method | Endpoint                        | Description                     | Auth  |
-|--------|---------------------------------|---------------------------------|-------|
-| POST   | /api/v1/auth/register           | Register user                   | Public |
-| POST   | /api/v1/auth/login              | Login                           | Public |
-| POST   | /api/v1/auth/refresh-token      | Refresh Access Token            | Public |
-| POST   | /api/v1/auth/register-admin     | Register admin                  | ADMIN |
+| Method | Endpoint                        | Description               |
+| ------ | ------------------------------- | ------------------------- |
+| POST   | /api/v1/auth/register           | Register Normal User      |
+| POST   | /api/v1/auth/register-with-role | Register with custom role |
+| POST   | /api/v1/auth/login              | Login                     |
+| POST   | /api/v1/auth/refresh-token      | Refresh access token      |
+
 
 ---
 
 ### User APIs
 
-| Method | Endpoint                       | Description        | Permission    |
-|--------|--------------------------------|--------------------|----------------|
-| GET    | /api/v1/user/profile           | Get profile        | USER_READ     |
-| PUT    | /api/v1/user/update            | Update profile     | USER_UPDATE   |
+| Method | Endpoint             | Permission  |
+| ------ | -------------------- | ----------- |
+| GET    | /api/v1/user/profile | USER_READ   |
+| PUT    | /api/v1/user/update  | USER_UPDATE |
+
 
 ---
 
 ### Admin APIs
 
-| Method | Endpoint                         | Description           | Permission              |
-|--------|----------------------------------|-----------------------|--------------------------|
-| GET    | /api/v1/admin/users              | Get users list        | ADMIN_READ_USERS         |
-| PUT    | /api/v1/admin/users/{id}         | Update user           | ADMIN_MANAGE_USERS       |
-| DELETE | /api/v1/admin/users/{id}         | Soft Delete user      | ADMIN_MANAGE_USERS       |
+| Method | Endpoint                         | Permission         |
+| ------ | -------------------------------- | ------------------ |
+| GET    | /api/v1/admin/users              | ADMIN_READ_USERS   |
+| PUT    | /api/v1/admin/users/{id}         | ADMIN_MANAGE_USERS |
+| DELETE | /api/v1/admin/users/{id}         | ADMIN_MANAGE_USERS |
+| PUT    | /api/v1/admin/users/{id}/restore | ADMIN_MANAGE_USERS |
 
 ---
 
 ## 🔑 Authentication Flow
 
-1. Register  
+1. Register → stored in DB with role
 2. Login → receive `accessToken` + `refreshToken`
 3. Use `accessToken` in request header:
+```bash
+Authorization: Bearer <accessToken>
+```
+4. When expired → user calls refresh API
+5. JWT contains:
+email
+role
+permissions[]
 
 ```
 Authorization: Bearer <accessToken>
@@ -348,7 +423,14 @@ Authorization: Bearer <accessToken>
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"P@ssw0rd!","name":"Test User"}'
+  -d '{"email":"user@example.com","password":"P@ssw0rd!","name":"User"}'
+```
+### Register user with custom role
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register-with-role \
+  -H "Content-Type: application/json" \
+  -d '{"email":"john@example.com","password":"Pass123!","name":"John","role":"ADMIN"}'
+
 ```
 
 ### Login
@@ -366,6 +448,34 @@ curl -X POST http://localhost:8080/api/v1/auth/refresh-token \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"<REFRESH_TOKEN>"}'
 ```
+### Create a role
+```bash 
+curl -X POST http://localhost:8080/api/v1/admin/roles \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"MANAGER"}'
+```
+
+### Create permission
+```bash
+curl -X POST http://localhost:8080/api/v1/admin/permissions \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"MANAGER_VIEW"}'
+```
+
+### Assign permissions to role
+```bash
+curl -X PUT http://localhost:8080/api/v1/admin/roles/MANAGER/permissions \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{ "permissions": ["MANAGER_VIEW", "MANAGER_UPDATE"] }'
+```
+### Restore User
+```bash
+curl -X PUT http://localhost:8080/api/v1/admin/users/10/restore \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
 
 ### Register Admin
 
@@ -376,6 +486,18 @@ curl -X POST http://localhost:8080/api/v1/auth/register-admin \
   -d '{"email":"admin@example.com","password":"AdminPass123","name":"Root Admin"}'
 ```
 
+## 🧹 Soft Delete
+
+Soft delete is enabled via Hibernate native soft delete:
+```aiignore
+DELETE marks row as deleted = true
+```
+All JPA queries auto-exclude deleted rows
+Restore via:
+```bash
+PUT /api/v1/admin/users/{id}/restore
+```
+
 ---
 
 ## 📦 POSTMAN COLLECTION JSON  
@@ -384,226 +506,206 @@ Save as: `SecurityApp.postman_collection.json`
 ```json
 {
   "info": {
-    "name": "SecurityApp API v1",
-    "_postman_id": "securityapp-collection-001",
-    "description": "Full Postman Collection for SecurityApp API including Auth, Users, Admin routes, Refresh Token, RBAC, Pagination, Validation.",
+    "name": "SecurityApp RBAC API v1",
+    "_postman_id": "securityapp-rbac-collection-001",
+    "description": "Complete Postman collection for SecurityApp RBAC API including Auth, Users, Admin, RBAC management, Refresh Token.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080"
-    },
-    {
-      "key": "accessToken",
-      "value": ""
-    },
-    {
-      "key": "refreshToken",
-      "value": ""
-    },
-    {
-      "key": "adminAccessToken",
-      "value": ""
-    }
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "adminAccessToken", "value": "" }
   ],
   "item": [
-
     {
-      "name": "Auth — Register User",
+      "name": "Auth - Register (Dynamic Role & Permissions)",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/register",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"P@ssw0rd!\",\n  \"name\": \"Test User\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/auth/register",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","auth","register"]
+          "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Admin@123\",\n  \"name\": \"Super Admin\",\n  \"role\": \"admin\",\n  \"permissions\": [\n    \"ADMIN_READ_USERS\",\n    \"ADMIN_MANAGE_USERS\",\n    \"ADMIN_RESTORE_USERS\",\n    \"RBAC_MANAGE_ROLES\",\n    \"RBAC_MANAGE_PERMISSIONS\"\n  ]\n}"
         }
       }
     },
-
     {
-      "name": "Auth — Login",
+      "name": "Auth - Login",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
               "var response = pm.response.json();",
-              "pm.collectionVariables.set(\"accessToken\", response.data.accessToken);",
-              "pm.collectionVariables.set(\"refreshToken\", response.data.refreshToken);"
+              "if (response.data) {",
+              "  pm.collectionVariables.set('accessToken', response.data.accessToken);",
+              "  pm.collectionVariables.set('refreshToken', response.data.refreshToken);",
+              "}"
             ]
           }
         }
       ],
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/login",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"P@ssw0rd!\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/auth/login",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","auth","login"]
+          "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Admin@123\"\n}"
         }
       }
     },
-
     {
-      "name": "Auth — Refresh Token",
+      "name": "Auth - Refresh Token",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
               "var response = pm.response.json();",
-              "pm.collectionVariables.set(\"accessToken\", response.data.accessToken);"
+              "if (response.data) {",
+              "  pm.collectionVariables.set('accessToken', response.data.accessToken);",
+              "}"
             ]
           }
         }
       ],
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/refresh-token",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/auth/refresh-token",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","auth","refresh-token"]
         }
       }
     },
-
     {
-      "name": "Auth — Register Admin (needs Admin Token)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"admin2@example.com\",\n  \"password\": \"AdminPass123\",\n  \"name\": \"Admin Two\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/auth/register-admin",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","auth","register-admin"]
-        }
-      }
-    },
-
-    {
-      "name": "User — Get Profile (USER_READ)",
+      "name": "User - Get Profile",
       "request": {
         "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/user/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","user","profile"]
-        }
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/api/v1/user/profile"
       }
     },
-
     {
-      "name": "User — Update Profile (USER_UPDATE)",
+      "name": "User - Update Profile",
       "request": {
         "method": "PUT",
         "header": [
           { "key": "Authorization", "value": "Bearer {{accessToken}}" },
           { "key": "Content-Type", "value": "application/json" }
         ],
+        "url": "{{baseUrl}}/api/v1/user/update",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Updated Test User\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/user/update",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","user","update"]
+          "raw": "{\n  \"name\": \"Updated User Name\"\n}"
         }
       }
     },
-
     {
-      "name": "Admin — List Users (pagination + sorting + filtering)",
+      "name": "Admin - Get Users (Paged)",
       "request": {
         "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/admin/users?page=0&size=10&sortBy=email&direction=asc&emailFilter=gmail",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","admin","users"],
-          "query": [
-            { "key": "page", "value": "0" },
-            { "key": "size", "value": "10" },
-            { "key": "sortBy", "value": "email" },
-            { "key": "direction", "value": "asc" },
-            { "key": "emailFilter", "value": "gmail" }
-          ]
-        }
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/api/v1/admin/users?page=0&size=10&sortBy=email&direction=asc"
       }
     },
-
     {
-      "name": "Admin — Update User (ADMIN_MANAGE_USERS)",
+      "name": "Admin - Update User (Name + Role)",
       "request": {
         "method": "PUT",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
           { "key": "Content-Type", "value": "application/json" }
         ],
+        "url": "{{baseUrl}}/api/v1/admin/users/5",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Updated Admin User\",\n  \"role\": \"ADMIN\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/admin/users/2",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","admin","users","2"]
+          "raw": "{\n  \"name\": \"Updated Name\",\n  \"roleName\": \"MANAGER\"\n}"
         }
       }
     },
-
     {
-      "name": "Admin — Delete User (ADMIN_MANAGE_USERS)",
+      "name": "Admin - Soft Delete User",
       "request": {
         "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/api/v1/admin/users/5"
+      }
+    },
+    {
+      "name": "Admin - Restore User",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/api/v1/admin/users/5/restore"
+      }
+    },
+    {
+      "name": "RBAC - Create Role",
+      "request": {
+        "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
         ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/admin/users/2",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","admin","users","2"]
+        "url": "{{baseUrl}}/api/v1/admin/roles",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"MANAGER\"\n}"
+        }
+      }
+    },
+    {
+      "name": "RBAC - List Roles",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/api/v1/admin/roles"
+      }
+    },
+    {
+      "name": "RBAC - Create Permission",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/permissions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"USER_READ\"\n}"
+        }
+      }
+    },
+    {
+      "name": "RBAC - List Permissions",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/api/v1/admin/permissions"
+      }
+    },
+    {
+      "name": "RBAC - Update Role Permissions",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/roles/MANAGER/permissions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"permissions\": [\"USER_READ\", \"USER_UPDATE\"]\n}"
         }
       }
     }
-
   ]
 }
-
 ```
 
 ---

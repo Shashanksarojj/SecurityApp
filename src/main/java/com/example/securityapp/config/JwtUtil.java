@@ -1,4 +1,6 @@
 package com.example.securityapp.config;
+import com.example.securityapp.entity.PermissionEntity;
+import com.example.securityapp.entity.UserEntity;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -6,26 +8,34 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 
-import static java.security.KeyRep.Type.SECRET;
-import com.example.securityapp.security.RolePermissionMapper;
-
-
 @Component
 public class JwtUtil {
 
     private final String SECRET = "your_super_secret_key_which_is_atleast_32_chars";
 
 
-    public String generateToken(String email, String role) {
-        List<String> permissions = RolePermissionMapper.getPermissionsForRole(role);
+    public String generateToken(UserEntity user) {
+        List<String> permissionNames = user.getRole().getPermissions()
+                .stream()
+                .map(PermissionEntity::getName)
+                .toList();
         return Jwts.builder()
-                .setSubject(email)
-                .claim("role", role)
-                .claim("permissions", permissions)
+                .setSubject(user.getEmail())
+                .claim("role", user.getRole().getName())
+                .claim("permissions", permissionNames)
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 15))
                 .signWith(Keys.hmacShaKeyFor(SECRET.getBytes()))
                 .compact();
     }
+
+    public Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(SECRET.getBytes())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
 
 
     public String extractUsername(String token) {

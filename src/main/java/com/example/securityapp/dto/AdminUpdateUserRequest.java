@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class AdminUpdateUserRequest {
     private String name;
-    private String role;  // ADMIN or USER
+    private String roleName;  // ADMIN or USER
 }

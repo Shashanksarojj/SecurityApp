@@ -2,6 +2,7 @@ package com.example.securityapp.service;
 
 import com.example.securityapp.dto.AdminUpdateUserRequest;
 import com.example.securityapp.dto.UpdateUserRequest;
+import com.example.securityapp.entity.RoleEntity;
 import com.example.securityapp.entity.UserEntity;
 import org.springframework.data.domain.Page;
 
@@ -16,4 +17,6 @@ public interface UserService {
     Page<UserEntity> getAllUsersPaged(int page, int size, String sortBy, String direction, String emailFilter);
     UserEntity updateUserByAdmin(Long id, AdminUpdateUserRequest req);
     String deleteUser(Long id);
+    public String restoreUser(Long id);
+    public RoleEntity updateRolePermissions(String roleName, List<String> perms);
 }

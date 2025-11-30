@@ -6,6 +6,8 @@ import com.example.securityapp.dto.AuthResponse;
 import com.example.securityapp.dto.RegisterRequest;
 import com.example.securityapp.service.AuthService;
 import com.example.securityapp.utils.ResponseBuilder;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -26,9 +28,16 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Operation(summary = "Register a user (with optional role & permissions)")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User registered"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Email already exists"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
+    })
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse> register(@Valid @RequestBody RegisterRequest request,
-                                                HttpServletRequest servletRequest) {
+    public ResponseEntity<ApiResponse> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest servletRequest) {
 
         String msg = authService.register(request);
 
@@ -36,6 +45,7 @@ public class AuthController {
                 ResponseBuilder.success(msg, null, servletRequest.getRequestURI())
         );
     }
+
 
 
     @PostMapping("/register-admin")
@@ -71,6 +81,5 @@ public class AuthController {
                 ResponseBuilder.success("Token refreshed successfully", response, request.getRequestURI())
         );
     }
-
 
 }

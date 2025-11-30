@@ -86,5 +86,22 @@ public class GlobalExceptionHandler {
                 .body(ResponseBuilder.error(ex.getMessage(), req.getRequestURI()));
     }
 
+    @ExceptionHandler(RoleNotFoundException.class)
+    public ResponseEntity<ApiResponse> handleRoleNotFound(RoleNotFoundException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ResponseBuilder.error(ex.getMessage(), req.getRequestURI()));
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse> handleUserAlreadyExists(UserAlreadyExistsException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ResponseBuilder.error(ex.getMessage(), req.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ResponseBuilder.error(ex.getMessage(), req.getRequestURI()));
+    }
 
 }
