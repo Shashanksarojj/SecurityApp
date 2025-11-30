@@ -323,7 +323,7 @@ mvn spring-boot:run
 |--------|----------------------------------|-----------------------|--------------------------|
 | GET    | /api/v1/admin/users              | Get users list        | ADMIN_READ_USERS         |
 | PUT    | /api/v1/admin/users/{id}         | Update user           | ADMIN_MANAGE_USERS       |
-| DELETE | /api/v1/admin/users/{id}         | Delete user           | ADMIN_MANAGE_USERS       |
+| DELETE | /api/v1/admin/users/{id}         | Soft Delete user      | ADMIN_MANAGE_USERS       |
 
 ---
 
