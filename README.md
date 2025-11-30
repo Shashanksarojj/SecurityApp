@@ -1,36 +1,83 @@
-🚀 SecurityApp
-· Spring Boot 4 
-· Spring Security 6 
-· JWT 
-· PostgreSQL 
-· Role-Based Authentication
+# SecurityApp
 
+A production-grade **JWT Authentication & Authorization System** built using:
 
-**_📌 Overview**_
+- **Spring Boot 4**
+- **Spring Security 6**
+- **JWT (Access + Refresh Tokens)**
+- **PostgreSQL**
+- **Role & Permission Based RBAC**
+- **Global Exception Handling & Validation**
+- **Pagination, Sorting & Filtering**
+- **Rate Limiting & CORS + Security Headers**
+- **Swagger/OpenAPI Documentation**
 
-SecurityApp is a fully working JWT Authentication + Authorization system using:
+This application provides a complete authentication module that is suitable for:
 
-Spring Boot 4
+✔ Portfolio projects  
+✔ Interview preparation  
+✔ Real-world microservices  
+✔ Scalable enterprise apps  
 
-Spring Security 6
+---
 
-PostgreSQL
+## 📌 Overview
 
-JWT Token-Based Authentication
+SecurityApp implements a secure and scalable **JWT-based authentication & authorization** system with:
 
-Role-Based Access Control (RBAC): USER, ADMIN
+- User registration & login
+- Access & Refresh token support
+- Stateless authentication
+- Role-based & Permission-based authorization (**USER**, **ADMIN** with fine-grained permissions)
+- Clean layered architecture (Controller → Service → Repository)
+- Standardized API responses via `ApiResponse` + `ResponseBuilder`
+- Field-level input validation
+- Global exception handling with custom exception hierarchy
+- Rate limiting on login to prevent brute-force attacks
+- Pagination, sorting & filtering for admin user listing
+- CORS configuration & security headers
+- Auto-generated Swagger UI documentation
 
-RESTful layered architecture
+All REST endpoints are versioned under:  
+`/api/v1/...`
 
-It follows production-quality practices and is perfect for:
+---
 
-✔ Portfolio projects
-✔ Interview preparation
-✔ Real-world microservices
-✔ Scalable authentication modules
+## 🏛 System Architecture (Mermaid Diagram)
 
-### **_📁 Project Structure_**
+> **IMPORTANT:**  
+> GitHub requires Mermaid diagrams to be wrapped inside ```mermaid.
 
+```mermaid
+flowchart TD
+
+A[Client / Postman / Frontend] --> B[Spring Security Filter Chain]
+
+B --> C[JwtAuthenticationFilter]
+C -->|Valid Token| D[SecurityContext Authentication]
+C -->|Invalid Token| Z[401 Unauthorized JSON - ApiResponse ERROR]
+
+D --> E[Authorization Rules - RBAC and Permissions]
+
+E -->|Allowed| F[DispatcherServlet]
+E -->|Forbidden| Y[403 Forbidden - ApiResponse ERROR]
+
+F --> G[Controller Layer - Auth / User / Admin]
+G --> H[Service Layer]
+
+H --> I[Repository Layer - JPA]
+I --> J[(PostgreSQL DB)]
+
+H --> K[ResponseBuilder]
+K --> L[ApiResponse JSON Object]
+L --> A
+```
+
+---
+
+## 📁 Project Structure
+
+```text
 src/main/java/com/example/securityapp
 │
 ├── SecurityappApplication.java
@@ -39,171 +86,529 @@ src/main/java/com/example/securityapp
 │   ├── SecurityConfig.java
 │   ├── JwtUtil.java
 │   ├── JwtAuthenticationFilter.java
-│   └── JwtAuthenticationEntryPoint.java
+│   ├── JwtAuthenticationEntryPoint.java
+│   └── OpenApiConfig.java
 │
 ├── controller/
-│   ├── AuthController.java
-│   ├── UserController.java
-│   └── AdminController.java
+│   ├── AuthController.java         # /api/v1/auth/*
+│   ├── UserController.java         # /api/v1/user/*
+│   └── AdminController.java        # /api/v1/admin/*
 │
 ├── dto/
+│   ├── ApiResponse.java            # Standard response wrapper
 │   ├── AuthRequest.java
-│   ├── AuthResponse.java
+│   ├── AuthResponse.java           # accessToken + refreshToken
 │   ├── RegisterRequest.java
 │   ├── UpdateUserRequest.java
 │   └── AdminUpdateUserRequest.java
 │
 ├── entity/
-│   └── UserEntity.java
+│   ├── UserEntity.java
+│   ├── RefreshToken.java
+│   ├── RoleEntity.java             # (optional persistence)
+│   └── PermissionEntity.java       # (optional persistence)
+│
+├── exception/
+│   ├── GlobalExceptionHandler.java
+│   ├── ResourceNotFoundException.java
+│   ├── BadRequestException.java
+│   ├── UnauthorizedException.java
+│   ├── ForbiddenException.java
+│   └── TooManyRequestsException.java
 │
 ├── repository/
-│   └── UserRepository.java
+│   ├── UserRepository.java
+│   ├── RefreshTokenRepository.java
+│   ├── RoleRepository.java
+│   └── PermissionRepository.java
 │
-└── service/
-├── AuthService.java
-├── UserService.java
-└── impl/
-├── AuthServiceImpl.java
-└── UserServiceImpl.java
+├── security/
+│   ├── Permissions.java
+│   ├── RolePermissionMapper.java
+│   └── LoginRateLimiter.java
+│
+├── service/
+│   ├── AuthService.java
+│   ├── UserService.java
+│   └── impl/
+│       ├── AuthServiceImpl.java
+│       └── UserServiceImpl.java
+│
+└── utils/
+    └── ResponseBuilder.java
+```
 
-### 🎯 Features
+---
 
-🔐 Authentication
+## 🗄️ ER Diagram (Mermaid ERD)
 
-Register user
+```mermaid
+erDiagram
 
-Login (JWT issuance)
+    USER_ENTITY {
+        bigint id PK
+        varchar email
+        varchar password
+        varchar name
+        varchar role
+    }
 
-Stateless authentication (no sessions)
+    REFRESH_TOKEN {
+        bigint id PK
+        varchar token
+        timestamp expiry
+        boolean revoked
+        bigint user_id FK
+    }
 
-JWT validation middleware
+    ROLE_ENTITY {
+        bigint id PK
+        varchar name
+    }
 
-##### 🛡 Authorization
+    PERMISSION_ENTITY {
+        bigint id PK
+        varchar name
+    }
 
-Role-based access (USER, ADMIN)
+    USER_ROLES {
+        bigint user_id FK
+        bigint role_id FK
+    }
 
-Protect admin APIs
+    ROLE_PERMISSIONS {
+        bigint role_id FK
+        bigint permission_id FK
+    }
 
-Restrict /auth/register-admin to admins only
+    USER_ENTITY ||--o{ REFRESH_TOKEN : "has many"
+    USER_ENTITY ||--o{ USER_ROLES : "assigned roles"
+    ROLE_ENTITY  ||--o{ USER_ROLES : "role to users"
 
-### **_👤 User Features_**
+    ROLE_ENTITY       ||--o{ ROLE_PERMISSIONS : "has permissions"
+    PERMISSION_ENTITY ||--o{ ROLE_PERMISSIONS : "mapped to roles"
+```
 
-View profile
+---
 
-Update own profile
+## 🎯 Features
 
-##### 🏛 Admin Features
+### 🔐 Authentication
+- Register user
+- Login + JWT generation
+- Access + Refresh Tokens
+- Refresh token rotation
+- Stateless security (`SessionCreationPolicy.STATELESS`)
 
-Get all users
+### 🛡 Authorization
+- Role Based Access Control (RBAC)
+- Permission based (fine-grained)
+- `@PreAuthorize` with `hasAuthority`
+- Custom denied & unauthorized handlers
 
-Update user role
+### 👤 User Features
+- Get own profile
+- Update own profile
 
-Delete user
+### 🏛 Admin Features
+- List users (paged & filtered)
+- Update any user
+- Delete users
+- Register new admins
 
-Create new admins
+### 📊 Pagination, Sorting, Filtering
+Admin user list supports:
+- `page`
+- `size`
+- `sortBy`
+- `direction`
+- `emailFilter`
 
-### ⚙️ **_Tech Stack_**
+### 🚦 Rate Limiting
+- Prevent brute-force login attempts
+- Custom limit per user/email
 
-Technology	Purpose
-Spring Boot 4	REST API backend
-Spring Security 6	Authentication & RBAC
-JWT	Stateless security
-PostgreSQL	Database
-Hibernate/JPA	ORM
-Maven	Build tool
-Lombok	Reduce boilerplate
-🚀 Getting Started
-1️⃣ Clone Repository
-git clone https://github.com/your-username/securityapp.git
-cd securityapp
+### 🌐 CORS + Security Headers
+- CORS allowed origins
+- CSP (Content Security Policy)
+- Frame options denied
+- Secure headers
 
-#### 2️⃣ Setup PostgreSQL Database
+### ⚠ Exception Hierarchy
+- `ResourceNotFoundException`
+- `BadRequestException`
+- `UnauthorizedException`
+- `ForbiddenException`
+- `TooManyRequestsException`
+- Validation errors handled uniformly
 
+### 📜 Swagger/OpenAPI
+Access at:
+
+```
+http://localhost:8080/swagger-ui/index.html
+```
+
+---
+
+## ⚙️ Tech Stack
+
+| Technology            | Purpose                             |
+|-----------------------|-------------------------------------|
+| Spring Boot 4         | REST API backend                    |
+| Spring Security 6     | Authentication & Authorization      |
+| JWT (JJWT)            | Access + Refresh Tokens             |
+| PostgreSQL            | Database                            |
+| Maven                 | Build tool                          |
+| Lombok                | Boilerplate reduction               |
+| Springdoc OpenAPI     | Swagger UI                          |
+| Logback + SLF4J       | Logging                             |
+
+---
+
+## 🗄️ Setup PostgreSQL Database
+
+```sql
 CREATE DATABASE securitydb;
+```
 
-#### 3️⃣ Configure application.properties
+---
 
+## ⚙️ application.properties
+
+```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/securitydb
 spring.datasource.username=postgres
 spring.datasource.password=your_password
 
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
+```
 
-#### 4️⃣ Run the Application
+---
 
+## ▶️ Run the Application
+
+```bash
 mvn spring-boot:run
+```
 
-#### 🔥 API Endpoints
+---
 
-🧑‍💻 Auth APIs
-Method	Endpoint	Description	Auth
-POST	/auth/register	Register a normal user	Public
-POST	/auth/login	Login & get JWT token	Public
-POST	/auth/register-admin	Create admin	Admin only
-👤 User APIs
-Method	Endpoint	Description	Auth
-GET	/user/profile	Get logged-in user profile	User/Admin
-PUT	/user/update	Update logged-in profile	User/Admin
-🏛 Admin APIs
-Method	Endpoint	Description	Auth
-GET	/admin/users	Get all users	Admin
-PUT	/admin/users/{id}	Update user + role	Admin
-DELETE	/admin/users/{id}	Delete user	Admin
+## 🔥 API Endpoints (v1)
 
-### 🔑 Authentication Flow
+### Auth APIs
 
-User registers
+| Method | Endpoint                        | Description                     | Auth  |
+|--------|---------------------------------|---------------------------------|-------|
+| POST   | /api/v1/auth/register           | Register user                   | Public |
+| POST   | /api/v1/auth/login              | Login                           | Public |
+| POST   | /api/v1/auth/refresh-token      | Refresh Access Token            | Public |
+| POST   | /api/v1/auth/register-admin     | Register admin                  | ADMIN |
 
-User logs in
+---
 
-Backend returns JWT
+### User APIs
 
-Client includes token in header:
+| Method | Endpoint                       | Description        | Permission    |
+|--------|--------------------------------|--------------------|----------------|
+| GET    | /api/v1/user/profile           | Get profile        | USER_READ     |
+| PUT    | /api/v1/user/update            | Update profile     | USER_UPDATE   |
 
-Authorization: Bearer <token>
+---
 
+### Admin APIs
 
-JwtAuthenticationFilter validates token
+| Method | Endpoint                         | Description           | Permission              |
+|--------|----------------------------------|-----------------------|--------------------------|
+| GET    | /api/v1/admin/users              | Get users list        | ADMIN_READ_USERS         |
+| PUT    | /api/v1/admin/users/{id}         | Update user           | ADMIN_MANAGE_USERS       |
+| DELETE | /api/v1/admin/users/{id}         | Delete user           | ADMIN_MANAGE_USERS       |
 
-SecurityContextHolder stores authenticated user
+---
 
-Spring Security checks permissions based on role
+## 🔑 Authentication Flow
 
-#### 🧪 cURL Examples
+1. Register  
+2. Login → receive `accessToken` + `refreshToken`
+3. Use `accessToken` in request header:
 
-Register User
-curl -X POST http://localhost:8080/auth/register \
--H "Content-Type: application/json" \
--d '{"email":"user@gmail.com","password":"12345"}'
+```
+Authorization: Bearer <accessToken>
+```
 
-##### Login
+4. When expired → call `/api/v1/auth/refresh-token`
 
-curl -X POST http://localhost:8080/auth/login \
--H "Content-Type: application/json" \
--d '{"email":"user@gmail.com","password":"12345"}'
+---
 
-##### Register Admin (requires token)
+## 🧪 cURL Examples
 
-curl -X POST http://localhost:8080/auth/register-admin \
--H "Authorization: Bearer <ADMIN_TOKEN>" \
--H "Content-Type: application/json" \
--d '{"email":"admin2@gmail.com","password":"secret"}'
+### Register User
 
-### **_📘 Learning Outcomes_**
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"P@ssw0rd!","name":"Test User"}'
+```
 
-By building this project you understand:
+### Login
 
-✔ Spring Security internals (filters, entry points, contexts)
-✔ JWT generation, validation & claims
-✔ Role-based authorization (hasRole, hasAuthority)
-✔ User management CRUD
-✔ Service-repository pattern
-✔ Secure API design
-✔ Stateless authentication architecture
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"P@ssw0rd!"}'
+```
 
-Great for interviews & production-ready microservices.
+### Refresh Token
 
-##### **_📄 License_**
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/refresh-token \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<REFRESH_TOKEN>"}'
+```
 
-This project is licensed under the MIT License.
+### Register Admin
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register-admin \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"AdminPass123","name":"Root Admin"}'
+```
+
+---
+
+## 📦 POSTMAN COLLECTION JSON  
+Save as: `SecurityApp.postman_collection.json`
+
+```json
+{
+  "info": {
+    "name": "SecurityApp API v1",
+    "_postman_id": "securityapp-collection-001",
+    "description": "Full Postman Collection for SecurityApp API including Auth, Users, Admin routes, Refresh Token, RBAC, Pagination, Validation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "adminAccessToken",
+      "value": ""
+    }
+  ],
+  "item": [
+
+    {
+      "name": "Auth — Register User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"P@ssw0rd!\",\n  \"name\": \"Test User\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","auth","register"]
+        }
+      }
+    },
+
+    {
+      "name": "Auth — Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var response = pm.response.json();",
+              "pm.collectionVariables.set(\"accessToken\", response.data.accessToken);",
+              "pm.collectionVariables.set(\"refreshToken\", response.data.refreshToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"P@ssw0rd!\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","auth","login"]
+        }
+      }
+    },
+
+    {
+      "name": "Auth — Refresh Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var response = pm.response.json();",
+              "pm.collectionVariables.set(\"accessToken\", response.data.accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/refresh-token",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","auth","refresh-token"]
+        }
+      }
+    },
+
+    {
+      "name": "Auth — Register Admin (needs Admin Token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin2@example.com\",\n  \"password\": \"AdminPass123\",\n  \"name\": \"Admin Two\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register-admin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","auth","register-admin"]
+        }
+      }
+    },
+
+    {
+      "name": "User — Get Profile (USER_READ)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/user/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","user","profile"]
+        }
+      }
+    },
+
+    {
+      "name": "User — Update Profile (USER_UPDATE)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Test User\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/user/update",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","user","update"]
+        }
+      }
+    },
+
+    {
+      "name": "Admin — List Users (pagination + sorting + filtering)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users?page=0&size=10&sortBy=email&direction=asc&emailFilter=gmail",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","users"],
+          "query": [
+            { "key": "page", "value": "0" },
+            { "key": "size", "value": "10" },
+            { "key": "sortBy", "value": "email" },
+            { "key": "direction", "value": "asc" },
+            { "key": "emailFilter", "value": "gmail" }
+          ]
+        }
+      }
+    },
+
+    {
+      "name": "Admin — Update User (ADMIN_MANAGE_USERS)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Admin User\",\n  \"role\": \"ADMIN\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/2",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","users","2"]
+        }
+      }
+    },
+
+    {
+      "name": "Admin — Delete User (ADMIN_MANAGE_USERS)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/2",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","users","2"]
+        }
+      }
+    }
+
+  ]
+}
+
+```
+
+---
+
+## 📄 License
+
+Licensed under the **MIT License**.
+
