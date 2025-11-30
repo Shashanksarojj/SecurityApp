@@ -133,9 +133,6 @@ src/main/java/com/example/securityapp
 
 ---
 
-## 🗄️ ER Diagram (Mermaid ERD)
-
-```mermaid
 # SecurityApp – Full RBAC (Role & Permission) System
 
 A production-grade **JWT Authentication & Authorization System** featuring a fully **dynamic Role-Based Access Control (RBAC)** and **Permission Management** implemented using:
@@ -208,7 +205,6 @@ Swagger UI:
 ## 🗄️ Database ER Diagram (Full Dynamic RBAC)
 
 ```mermaid
-erDiagram
     USER_ENTITY {
         bigint id PK
         varchar email
