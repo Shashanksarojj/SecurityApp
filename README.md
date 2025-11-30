@@ -205,6 +205,7 @@ Swagger UI:
 ## 🗄️ Database ER Diagram (Full Dynamic RBAC)
 
 ```mermaid
+erDiagram
     USER_ENTITY {
         bigint id PK
         varchar email
