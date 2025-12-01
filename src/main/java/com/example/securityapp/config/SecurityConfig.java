@@ -1,6 +1,7 @@
 package com.example.securityapp.config;
 
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,7 +22,9 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    @Autowired
     private final JwtAuthenticationFilter jwtFilter;
+    @Autowired
     private final JwtAuthenticationEntryPoint entryPoint;
 
     @Bean
